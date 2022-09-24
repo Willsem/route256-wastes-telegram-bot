@@ -1,5 +1,5 @@
 default:
-  image: gitlab.ozon.dev/go/classroom-4/students/project-basei/go-runner:latest
+  image: golang:latest
 
 stages:
   - build
