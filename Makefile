@@ -5,17 +5,18 @@ MOCKGEN=${BINDIR}/mockgen_${GOVER}
 SMARTIMPORTS=${BINDIR}/smartimports_${GOVER}
 LINTVER=v1.49.0
 LINTBIN=${BINDIR}/lint_${GOVER}_${LINTVER}
+PACKAGE=gitlab.ozon.dev/go/classroom-4/teachers/homework/cmd/bot
 
 all: format build test lint
 
 build: bindir
-	go build -o ${BINDIR}/bot gitlab.ozon.dev/go/classroom-4/teachers/homework/cmd/bot
+	go build -o ${BINDIR}/bot ${PACKAGE}
 
 test:
 	go test ./...
 
 run:
-	go run gitlab.ozon.dev/go/classroom-4/teachers/homework/cmd/bot
+	go run ${PACKAGE}
 
 generate: install-mockgen
 	${MOCKGEN} -source=internal/model/messages/incoming_msg.go -destination=internal/mocks/messages/messages_mocks.go
