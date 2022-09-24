@@ -1,0 +1,21 @@
+default:
+  image: gitlab.ozon.dev/go/classroom-4/students/project-basei/go-runner:latest
+
+stages:
+  - build
+  - test
+
+build:
+  stage: build
+  script:
+    - make build
+
+test:
+  stage: test
+  script:
+    - make test
+
+lint:
+  stage: test
+  script:
+    - make lint
