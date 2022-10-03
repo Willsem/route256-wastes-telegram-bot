@@ -1,0 +1,6 @@
+log_level: 'debug'
+
+telegram:
+  token: '<token>'
+  timeout: 60
+  message_buffer: 10
