@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+
 	"gitlab.ozon.dev/stepanov.ao.dev/telegram-bot/internal/models"
 	"gitlab.ozon.dev/stepanov.ao.dev/telegram-bot/pkg/log"
 )
@@ -26,12 +27,12 @@ type Client struct {
 func NewClient(config Config, logger log.Logger) (*Client, error) {
 	client, err := tgbotapi.NewBotAPI(config.Token)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connecting to telegrag bot: %v", err)
+		return nil, fmt.Errorf("failed to connecting to telegrag bot: %w", err)
 	}
 
 	c := &Client{
 		client:         client,
-		logger:         logger,
+		logger:         logger.With(log.ComponentKey, "Telegram client"),
 		timeout:        config.Timeout,
 		messageUpdates: make(chan *models.Message, config.MessageBuffer),
 	}
@@ -43,17 +44,44 @@ func NewClient(config Config, logger log.Logger) (*Client, error) {
 
 func (c *Client) SendMessage(userID int64, text string) error {
 	msg := tgbotapi.NewMessage(userID, text)
+	msg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
 	msg.ParseMode = tgbotapi.ModeMarkdown
+	return c.sendMessage(msg)
+}
 
-	_, err := c.client.Send(msg)
-	if err != nil {
-		return fmt.Errorf("sending message to telegram: %v", err)
-	}
-	return nil
+func (c *Client) SendMessageWithoutRemovingKeyboard(userID int64, text string) error {
+	msg := tgbotapi.NewMessage(userID, text)
+	msg.ParseMode = tgbotapi.ModeMarkdown
+	return c.sendMessage(msg)
 }
 
 func (c *Client) GetUpdatesChan() chan *models.Message {
 	return c.messageUpdates
+}
+
+func (c *Client) SendKeyboard(userID int64, text string, rows [][]string) error {
+	buttons := make([][]tgbotapi.KeyboardButton, 0)
+
+	for _, row := range rows {
+		cols := make([]tgbotapi.KeyboardButton, 0)
+		for _, col := range row {
+			cols = append(cols, tgbotapi.NewKeyboardButton(col))
+		}
+		buttons = append(buttons, cols)
+	}
+
+	msg := tgbotapi.NewMessage(userID, text)
+	msg.ParseMode = tgbotapi.ModeMarkdown
+	msg.ReplyMarkup = tgbotapi.NewReplyKeyboard(buttons...)
+	return c.sendMessage(msg)
+}
+
+func (c *Client) sendMessage(msg tgbotapi.MessageConfig) error {
+	_, err := c.client.Send(msg)
+	if err != nil {
+		return fmt.Errorf("sending message to telegram: %w", err)
+	}
+	return nil
 }
 
 func (c *Client) listenUpdates() {

@@ -4,13 +4,20 @@ import (
 	"fmt"
 	"os"
 
-	"gitlab.ozon.dev/stepanov.ao.dev/telegram-bot/internal/clients/telegram"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/yaml.v3"
+
+	"gitlab.ozon.dev/stepanov.ao.dev/telegram-bot/internal/app"
+	exchangeclient "gitlab.ozon.dev/stepanov.ao.dev/telegram-bot/internal/clients/exchange"
+	"gitlab.ozon.dev/stepanov.ao.dev/telegram-bot/internal/clients/telegram"
+	exchangeservice "gitlab.ozon.dev/stepanov.ao.dev/telegram-bot/internal/service/exchange"
 )
 
 type Config struct {
-	Telegram telegram.Config `yaml:"telegram"`
+	App            app.Config             `yaml:"app"`
+	Telegram       telegram.Config        `yaml:"telegram"`
+	ExchangeClient exchangeclient.Config  `yaml:"exchange_client"`
+	Currency       exchangeservice.Config `yaml:"currency"`
 
 	LogLevel zapcore.Level `yaml:"log_level"`
 }
@@ -18,13 +25,13 @@ type Config struct {
 func NewConfig(configFile string) (*Config, error) {
 	rawYAML, err := os.ReadFile(configFile)
 	if err != nil {
-		return nil, fmt.Errorf("reading file error: %v", err)
+		return nil, fmt.Errorf("reading file error: %w", err)
 	}
 
 	cfg := &Config{}
 	err = yaml.Unmarshal(rawYAML, cfg)
 	if err != nil {
-		return nil, fmt.Errorf("yaml parsing error: %v", err)
+		return nil, fmt.Errorf("yaml parsing error: %w", err)
 	}
 
 	return cfg, nil

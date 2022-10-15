@@ -4,12 +4,12 @@ import "time"
 
 type Waste struct {
 	ID       int64
-	Cost     int
+	Cost     int64
 	Category string
 	Date     time.Time
 }
 
-func NewWaste(category string, cost int, date time.Time) *Waste {
+func NewWaste(category string, cost int64, date time.Time) *Waste {
 	return &Waste{
 		Cost:     cost,
 		Category: category,

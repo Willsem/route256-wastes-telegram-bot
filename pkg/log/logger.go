@@ -16,3 +16,5 @@ type Logger interface {
 	Errorf(template string, args ...interface{})
 	Fatalf(template string, args ...interface{})
 }
+
+const ComponentKey = "component"

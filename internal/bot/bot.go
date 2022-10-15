@@ -1,6 +1,8 @@
 package bot
 
 import (
+	"context"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -11,13 +13,15 @@ import (
 	"gitlab.ozon.dev/stepanov.ao.dev/telegram-bot/pkg/log"
 )
 
-//go:generate mockery --name=telegramClient --dir .  --output ./mocks --exported
+//go:generate mockery --name=telegramClient --dir . --output ./mocks --exported
 type telegramClient interface {
 	SendMessage(userID int64, text string) error
+	SendMessageWithoutRemovingKeyboard(userID int64, text string) error
+	SendKeyboard(userID int64, text string, rows [][]string) error
 	GetUpdatesChan() chan *models.Message
 }
 
-//go:generate mockery --name=wasteRepository --dir .  --output ./mocks --exported
+//go:generate mockery --name=wasteRepository --dir . --output ./mocks --exported
 type wasteRepository interface {
 	GetReportLastWeek(userID int64) ([]models.CategoryReport, error)
 	GetReportLastMonth(userID int64) ([]models.CategoryReport, error)
@@ -26,11 +30,20 @@ type wasteRepository interface {
 	AddWasteToUser(userID int64, waste *models.Waste) error
 }
 
+//go:generate mockery --name=exchangeRepository --dir . --output ./mocks --exported
+type exchangesRepository interface {
+	GetDefaultCurrency() string
+	GetUsedCurrencies() []string
+	GetExchange(currency string) (float64, error)
+	GetDesignation(currency string) (string, error)
+}
+
 type messageContext int
 
 const (
 	noContext messageContext = iota
 	addWaste
+	changeCurrency
 )
 
 type reportPeriod string
@@ -42,10 +55,14 @@ const (
 )
 
 const (
-	messageWasteNotFound       = "Траты за указанный период не найдены"
-	messageInternalError       = "Внутренняя ошибка"
-	messageIncorrectFormat     = "Неправильный формат"
-	messageSuccessfullAddWaste = "Трата успешно добавлена"
+	messageWasteNotFound            = "Траты за указанный период не найдены"
+	messageInternalError            = "Внутренняя ошибка"
+	messageIncorrectFormat          = "Неправильный формат"
+	messageSuccessfulAddWaste       = "Трата успешно добавлена"
+	messageIncorrectContext         = "Неизвестное состояние пользователя, состояние сброшено до стандартного"
+	messageChooseCurrency           = "Выберите валюту из предложенных на клавиатуре"
+	messageSuccessfulChangeCurrency = "Валюта успешно изменена на "
+	messageDefaultCurrency          = "Выбрана валюта по умолчанию "
 
 	messageAddWaste = `Для добавления траты введите сообщение в формате:
 
@@ -58,45 +75,103 @@ const (
 /add - для добавления новой траты
 /week - отчет по тратам за последнюю неделю
 /month - отчет по тратам за последний месяц
-/year - отчет по тратам за последний год`
+/year - отчет по тратам за последний год
+/currency - сменить валюту`
 )
 
 const userDateLayout = "02.01.2006"
 
-type Bot struct {
-	tgClient  telegramClient
-	wasteRepo wasteRepository
-	logger    log.Logger
+const convertToMainCurrency = 100.0
 
-	userContext map[int64]messageContext
+type Bot struct {
+	tgClient     telegramClient
+	wasteRepo    wasteRepository
+	exchangeRepo exchangesRepository
+	logger       log.Logger
+
+	userContext  map[int64]messageContext
+	userCurrency map[int64]string
+
+	cancel context.CancelFunc
+	done   chan struct{}
 }
 
-func NewBot(tgClient telegramClient, wasteRepo wasteRepository, logger log.Logger) *Bot {
+func NewBot(
+	tgClient telegramClient, wasteRepo wasteRepository, exchangeRepo exchangesRepository, logger log.Logger,
+) *Bot {
 	return &Bot{
-		tgClient:    tgClient,
-		wasteRepo:   wasteRepo,
-		logger:      logger,
-		userContext: make(map[int64]messageContext, 0),
+		tgClient:     tgClient,
+		wasteRepo:    wasteRepo,
+		exchangeRepo: exchangeRepo,
+		logger:       logger.With(log.ComponentKey, "Bot"),
+
+		userContext:  make(map[int64]messageContext, 0),
+		userCurrency: make(map[int64]string, 0),
 	}
 }
 
-func (b *Bot) Run() {
-	for message := range b.tgClient.GetUpdatesChan() {
-		switch message.Text {
-		case "/week":
-			b.userContext[message.From.ID] = noContext
-			b.generateReportForUser(message, week)
-		case "/month":
-			b.userContext[message.From.ID] = noContext
-			b.generateReportForUser(message, month)
-		case "/year":
-			b.userContext[message.From.ID] = noContext
-			b.generateReportForUser(message, year)
-		case "/add":
-			b.userContext[message.From.ID] = addWaste
-			b.sendMessage(message.From.ID, messageAddWaste)
-		default:
-			b.workWithMessage(message)
+func (b *Bot) Start() error {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	b.cancel = cancel
+	b.done = make(chan struct{})
+
+	go b.run(ctx)
+
+	return nil
+}
+
+func (b *Bot) Stop(ctx context.Context) error {
+	b.cancel()
+
+	select {
+	case <-b.done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func (b *Bot) run(ctx context.Context) {
+	for {
+		select {
+		case message := <-b.tgClient.GetUpdatesChan():
+			b.logger.With("message", message).Debug("get the message by bot")
+
+			if _, ok := b.userContext[message.From.ID]; !ok {
+				b.userContext[message.From.ID] = noContext
+			}
+			if _, ok := b.userCurrency[message.From.ID]; !ok {
+				defaultCurrency := b.exchangeRepo.GetDefaultCurrency()
+				b.userCurrency[message.From.ID] = defaultCurrency
+				b.sendMessage(message.From.ID, messageDefaultCurrency+defaultCurrency)
+			}
+
+			switch message.Text {
+			case "/week":
+				b.userContext[message.From.ID] = noContext
+				b.generateReportForUser(message, week)
+			case "/month":
+				b.userContext[message.From.ID] = noContext
+				b.generateReportForUser(message, month)
+			case "/year":
+				b.userContext[message.From.ID] = noContext
+				b.generateReportForUser(message, year)
+			case "/add":
+				b.userContext[message.From.ID] = addWaste
+				b.sendMessage(message.From.ID, messageAddWaste)
+			case "/currency":
+				b.userContext[message.From.ID] = changeCurrency
+				b.sendChangingCurrencyKeyboard(message.From.ID)
+			default:
+				b.workWithMessage(message)
+			}
+
+		case <-ctx.Done():
+			b.logger.WithError(ctx.Err()).Info("bot has been stopped")
+			close(b.done)
+
+			return
 		}
 	}
 }
@@ -123,16 +198,38 @@ func (b *Bot) generateReportForUser(message *models.Message, period reportPeriod
 	if err != nil {
 		b.logger.
 			WithError(err).
-			Error("failed to generate report during last week for user %d", message.From.ID)
+			Warn("failed to generate report during last week for user %d", message.From.ID)
 
 		b.sendMessage(message.From.ID, messageWasteNotFound)
 		return
 	}
 
-	b.sendMessage(message.From.ID, b.generateStringReport(report, period))
+	exchange, err := b.exchangeRepo.GetExchange(b.userCurrency[message.From.ID])
+	if err != nil {
+		b.logger.
+			WithError(err).
+			Error("failed to get exchange for the currency ", b.userCurrency[message.From.ID])
+
+		b.sendMessage(message.From.ID, messageInternalError)
+		return
+	}
+
+	designation, err := b.exchangeRepo.GetDesignation(b.userCurrency[message.From.ID])
+	if err != nil {
+		b.logger.
+			WithError(err).
+			Error("failed to get designation for the currency ", b.userCurrency[message.From.ID])
+
+		b.sendMessage(message.From.ID, messageInternalError)
+		return
+	}
+
+	b.sendMessage(message.From.ID, b.generateStringReport(report, period, exchange, designation))
 }
 
-func (b *Bot) generateStringReport(report []models.CategoryReport, period reportPeriod) string {
+func (b *Bot) generateStringReport(
+	report []models.CategoryReport, period reportPeriod, currencyExchange float64, currencyDesignation string,
+) string {
 	textMessageHeader := "Отчет по тратам за "
 
 	switch period {
@@ -151,7 +248,8 @@ func (b *Bot) generateStringReport(report []models.CategoryReport, period report
 	for _, category := range report {
 		data = append(data, []string{
 			category.Category,
-			strconv.Itoa(category.Sum),
+			fmt.Sprintf("%.2f %s",
+				float64(category.Sum)*currencyExchange/convertToMainCurrency, currencyDesignation),
 		})
 	}
 
@@ -177,6 +275,11 @@ func (b *Bot) workWithMessage(message *models.Message) {
 		b.sendMessage(message.From.ID, messageHelp)
 	case addWaste:
 		b.addWaste(message)
+	case changeCurrency:
+		b.changeCurrency(message)
+	default:
+		b.userContext[message.From.ID] = noContext
+		b.sendMessage(message.From.ID, messageIncorrectContext)
 	}
 }
 
@@ -190,7 +293,7 @@ func (b *Bot) addWaste(message *models.Message) {
 		return
 	}
 
-	cost, err := strconv.Atoi(lines[1])
+	cost, err := strconv.ParseFloat(lines[1], 64)
 	if err != nil {
 		b.sendMessage(message.From.ID, messageIncorrectFormat)
 		return
@@ -205,7 +308,16 @@ func (b *Bot) addWaste(message *models.Message) {
 		}
 	}
 
-	waste := models.NewWaste(lines[0], cost, date)
+	exchange, err := b.exchangeRepo.GetExchange(b.userCurrency[message.From.ID])
+	if err != nil {
+		b.logger.
+			WithError(err).
+			Error("failed to get exchange", b.userCurrency[message.From.ID])
+		b.sendMessage(message.From.ID, messageInternalError)
+		return
+	}
+
+	waste := models.NewWaste(lines[0], int64(cost/exchange*convertToMainCurrency), date)
 	err = b.wasteRepo.AddWasteToUser(message.From.ID, waste)
 	if err != nil {
 		b.sendMessage(message.From.ID, messageInternalError)
@@ -213,11 +325,54 @@ func (b *Bot) addWaste(message *models.Message) {
 		return
 	}
 
-	b.sendMessage(message.From.ID, messageSuccessfullAddWaste)
+	b.userContext[message.From.ID] = noContext
+	b.sendMessage(message.From.ID, messageSuccessfulAddWaste)
+}
+
+func (b *Bot) changeCurrency(message *models.Message) {
+	_, err := b.exchangeRepo.GetExchange(message.Text)
+	if err != nil {
+		b.sendMessageWithoutRemovingKeyboard(message.From.ID, messageChooseCurrency)
+		return
+	}
+
+	b.userContext[message.From.ID] = noContext
+	b.userCurrency[message.From.ID] = message.Text
+	b.sendMessage(message.From.ID, messageSuccessfulChangeCurrency+message.Text)
+}
+
+func (b *Bot) sendChangingCurrencyKeyboard(userID int64) {
+	defaultCurrency := b.exchangeRepo.GetDefaultCurrency()
+	usedCurrencies := b.exchangeRepo.GetUsedCurrencies()
+
+	usedCurrenciesKeyboardButtons := make([][]string, len(usedCurrencies)+1)
+	usedCurrenciesKeyboardButtons[0] = []string{defaultCurrency}
+	for i := range usedCurrencies {
+		usedCurrenciesKeyboardButtons[i+1] = []string{usedCurrencies[i]}
+	}
+	b.sendKeyboard(userID, messageChooseCurrency, usedCurrenciesKeyboardButtons)
+}
+
+func (b *Bot) sendKeyboard(userID int64, text string, buttons [][]string) {
+	err := b.tgClient.SendKeyboard(userID, text, buttons)
+	if err != nil {
+		b.logger.
+			WithError(err).
+			Error("failed to send keyboard")
+	}
 }
 
 func (b *Bot) sendMessage(userID int64, text string) {
 	err := b.tgClient.SendMessage(userID, text)
+	if err != nil {
+		b.logger.
+			WithError(err).
+			Error("failed to send message")
+	}
+}
+
+func (b *Bot) sendMessageWithoutRemovingKeyboard(userID int64, text string) {
+	err := b.tgClient.SendMessageWithoutRemovingKeyboard(userID, text)
 	if err != nil {
 		b.logger.
 			WithError(err).

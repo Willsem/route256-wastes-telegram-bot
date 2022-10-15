@@ -94,10 +94,10 @@ func (r *WasteRepository) GetReportAfterDate(userID int64, date time.Time) ([]mo
 	r.mutex.RUnlock()
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to get wastes by user after the date %v: %v", date, err)
+		return nil, fmt.Errorf("failed to get wastes by user after the date %v: %w", date, err)
 	}
 
-	categories := make(map[string]int)
+	categories := make(map[string]int64)
 	for _, waste := range wastes {
 		if _, ok := categories[waste.Category]; !ok {
 			categories[waste.Category] = 0

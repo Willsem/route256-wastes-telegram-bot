@@ -1,6 +1,20 @@
 log_level: 'debug'
 
+app:
+  graceful_timeout: '1m'
+
 telegram:
   token: '<token>'
   timeout: 60
   message_buffer: 10
+
+exchange_client:
+  endpoint: 'https://api.exchangerate.host/latest'
+
+currency:
+  update_timeout: "10m"
+  retry_timeout: "20s"
+  default: 'RUB'
+  designation_default: 'Руб'
+  used: ['USD', 'EUR', 'CNY']
+  designation_used: ['$', '€', '¥']

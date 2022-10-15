@@ -1,6 +1,6 @@
 package models
 
 type CategoryReport struct {
-	Sum      int
+	Sum      int64
 	Category string
 }
