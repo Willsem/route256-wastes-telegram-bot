@@ -12,9 +12,17 @@ exchange_client:
   endpoint: 'https://api.exchangerate.host/latest'
 
 currency:
-  update_timeout: "10m"
-  retry_timeout: "20s"
+  update_timeout: '10m'
+  retry_timeout: '20s'
   default: 'RUB'
   designation_default: 'Руб'
   used: ['USD', 'EUR', 'CNY']
   designation_used: ['$', '€', '¥']
+
+database:
+  host: 'postgres'
+  port: 5432
+  user: 'postgres'
+  password: 'postgres'
+  db_name: 'money_wastes_db'
+  ssl_mode: 'disable'

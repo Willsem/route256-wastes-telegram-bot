@@ -37,14 +37,29 @@ func main() {
 			Fatal("failed to create exchange client")
 	}
 
-	wasteRepo := repository.NewWasteRepository()
+	dbClient, err := startup.DatabaseConnect(config.Database)
+	if err != nil {
+		logger.WithError(err).
+			Fatal("failed to connect to database")
+	}
+	defer func() {
+		err := dbClient.Close()
+		if err != nil {
+			logger.WithError(err).
+				Warn("failed to close database")
+		}
+	}()
+
+	userRepo := repository.NewUserRepository(dbClient)
+	wasteRepo := repository.NewWasteRepository(dbClient)
+
 	exchangeService, err := exchangeservice.NewService(config.Currency, exchangeClient, logger)
 	if err != nil {
 		logger.WithError(err).
 			Fatal("failed to create exchange repository")
 	}
 
-	botComponent := bot.NewBot(tgClient, wasteRepo, exchangeService, logger)
+	botComponent := bot.NewBot(tgClient, userRepo, wasteRepo, exchangeService, logger)
 
 	err = app.New(config.App, logger,
 		exchangeService,

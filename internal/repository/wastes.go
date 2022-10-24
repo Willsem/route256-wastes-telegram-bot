@@ -1,11 +1,13 @@
 package repository
 
 import (
+	"context"
 	"errors"
-	"fmt"
-	"sync"
 	"time"
 
+	"gitlab.ozon.dev/stepanov.ao.dev/telegram-bot/internal/ent"
+	"gitlab.ozon.dev/stepanov.ao.dev/telegram-bot/internal/ent/user"
+	"gitlab.ozon.dev/stepanov.ao.dev/telegram-bot/internal/ent/waste"
 	"gitlab.ozon.dev/stepanov.ao.dev/telegram-bot/internal/models"
 )
 
@@ -18,118 +20,127 @@ const (
 )
 
 type WasteRepository struct {
-	wastes map[int64][]models.Waste
-	mutex  *sync.RWMutex
+	client *ent.Client
 }
 
-func NewWasteRepository() *WasteRepository {
+func NewWasteRepository(client *ent.Client) *WasteRepository {
 	return &WasteRepository{
-		wastes: make(map[int64][]models.Waste, 0),
-		mutex:  &sync.RWMutex{},
+		client: client,
 	}
 }
 
-func (r *WasteRepository) GetWastesByUser(userID int64) ([]models.Waste, error) {
-	r.mutex.RLock()
-	wastes, ok := r.wastes[userID]
-	r.mutex.RUnlock()
-
-	if !ok {
-		return nil, ErrNotFound
-	}
-
-	return wastes, nil
-}
-
-func (r *WasteRepository) GetWastesByUserLastWeek(userID int64) ([]models.Waste, error) {
-	return r.GetWastesByUserAfterDate(userID, time.Now().Add(-weekDuration))
-}
-
-func (r *WasteRepository) GetWastesByUserLastMonth(userID int64) ([]models.Waste, error) {
-	return r.GetWastesByUserAfterDate(userID, time.Now().Add(-monthDuration))
-}
-
-func (r *WasteRepository) GetWastesByUserLastYear(userID int64) ([]models.Waste, error) {
-	return r.GetWastesByUserAfterDate(userID, time.Now().Add(-yearDuration))
-}
-
-func (r *WasteRepository) GetWastesByUserAfterDate(userID int64, date time.Time) ([]models.Waste, error) {
-	r.mutex.RLock()
-	wastes, ok := r.wastes[userID]
-	r.mutex.RUnlock()
-
-	if !ok {
-		return nil, ErrNotFound
-	}
-
-	result := make([]models.Waste, 0)
-	for _, waste := range wastes {
-		if waste.Date.After(date) {
-			result = append(result, waste)
-		}
-	}
-
-	if len(result) == 0 {
-		return nil, ErrNotFound
-	}
-
-	return result, nil
-}
-
-func (r *WasteRepository) GetReportLastWeek(userID int64) ([]models.CategoryReport, error) {
-	return r.GetReportAfterDate(userID, time.Now().Add(-weekDuration))
-}
-
-func (r *WasteRepository) GetReportLastMonth(userID int64) ([]models.CategoryReport, error) {
-	return r.GetReportAfterDate(userID, time.Now().Add(-monthDuration))
-}
-
-func (r *WasteRepository) GetReportLastYear(userID int64) ([]models.CategoryReport, error) {
-	return r.GetReportAfterDate(userID, time.Now().Add(-yearDuration))
-}
-
-func (r *WasteRepository) GetReportAfterDate(userID int64, date time.Time) ([]models.CategoryReport, error) {
-	r.mutex.RLock()
-	wastes, err := r.GetWastesByUserAfterDate(userID, date)
-	r.mutex.RUnlock()
-
+func (r *WasteRepository) GetWastesByUser(ctx context.Context, userID int64) ([]*models.Waste, error) {
+	wastes, err := r.client.Waste.
+		Query().
+		Where(waste.HasUserWith(user.ID(userID))).
+		All(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get wastes by user after the date %v: %w", date, err)
+		return nil, err
 	}
 
-	categories := make(map[string]int64)
-	for _, waste := range wastes {
-		if _, ok := categories[waste.Category]; !ok {
-			categories[waste.Category] = 0
-		}
-
-		categories[waste.Category] += waste.Cost
-	}
-
-	result := make([]models.CategoryReport, 0, len(categories))
-	for category, sum := range categories {
-		result = append(result, models.CategoryReport{
-			Sum:      sum,
-			Category: category,
+	result := make([]*models.Waste, 0, len(wastes))
+	for _, v := range wastes {
+		result = append(result, &models.Waste{
+			Waste: v,
 		})
 	}
 
-	if len(result) == 0 {
-		return nil, ErrNotFound
+	return result, nil
+}
+
+func (r *WasteRepository) GetWastesByUserLastWeek(ctx context.Context, userID int64) ([]*models.Waste, error) {
+	return r.GetWastesByUserAfterDate(ctx, userID, time.Now().Add(-weekDuration))
+}
+
+func (r *WasteRepository) GetWastesByUserLastMonth(ctx context.Context, userID int64) ([]*models.Waste, error) {
+	return r.GetWastesByUserAfterDate(ctx, userID, time.Now().Add(-monthDuration))
+}
+
+func (r *WasteRepository) GetWastesByUserLastYear(ctx context.Context, userID int64) ([]*models.Waste, error) {
+	return r.GetWastesByUserAfterDate(ctx, userID, time.Now().Add(-yearDuration))
+}
+
+func (r *WasteRepository) GetWastesByUserAfterDate(
+	ctx context.Context, userID int64, date time.Time,
+) ([]*models.Waste, error) {
+	wastes, err := r.client.Waste.Query().
+		Where(waste.HasUserWith(user.ID(userID)), waste.DateGTE(date)).
+		All(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]*models.Waste, 0, len(wastes))
+	for _, v := range wastes {
+		result = append(result, &models.Waste{
+			Waste: v,
+		})
 	}
 
 	return result, nil
 }
 
-func (r *WasteRepository) AddWasteToUser(userID int64, waste *models.Waste) error {
-	r.mutex.Lock()
+func (r *WasteRepository) GetReportLastWeek(ctx context.Context, userID int64) ([]*models.CategoryReport, error) {
+	return r.GetReportAfterDate(ctx, userID, time.Now().Add(-weekDuration))
+}
 
-	if _, ok := r.wastes[userID]; !ok {
-		r.wastes[userID] = make([]models.Waste, 0, 1)
+func (r *WasteRepository) GetReportLastMonth(ctx context.Context, userID int64) ([]*models.CategoryReport, error) {
+	return r.GetReportAfterDate(ctx, userID, time.Now().Add(-monthDuration))
+}
+
+func (r *WasteRepository) GetReportLastYear(ctx context.Context, userID int64) ([]*models.CategoryReport, error) {
+	return r.GetReportAfterDate(ctx, userID, time.Now().Add(-yearDuration))
+}
+
+func (r *WasteRepository) GetReportAfterDate(
+	ctx context.Context, userID int64, date time.Time,
+) ([]*models.CategoryReport, error) {
+	var report []*models.CategoryReport
+	err := r.client.Waste.Query().
+		Where(waste.HasUserWith(user.ID(userID)), waste.DateGTE(date)).
+		GroupBy(waste.FieldCategory).
+		Aggregate(ent.Sum(waste.FieldCost)).
+		Scan(ctx, &report)
+	if err != nil {
+		return nil, err
 	}
 
-	r.wastes[userID] = append(r.wastes[userID], *waste)
+	return report, nil
+}
 
-	r.mutex.Unlock()
-	return nil
+func (r *WasteRepository) AddWasteToUser(
+	ctx context.Context, userID int64, waste *models.Waste,
+) (*models.Waste, error) {
+	model, err := r.client.Waste.
+		Create().
+		SetCost(waste.Cost).
+		SetCategory(waste.Category).
+		SetDate(waste.Date).
+		SetUserID(userID).
+		Save(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &models.Waste{
+		Waste: model,
+	}, nil
+}
+
+func (r *WasteRepository) SumOfWastesAfterDate(ctx context.Context, userID int64, date time.Time) (int64, error) {
+	var result []struct {
+		Sum        int64       `json:"sum"`
+		UserWastes interface{} `json:"user_wastes"`
+	}
+	err := r.client.Waste.Query().
+		Select(waste.FieldCost).
+		Where(waste.HasUserWith(user.ID(userID))).
+		GroupBy(waste.UserColumn).
+		Aggregate(ent.Sum(waste.FieldCost)).
+		Scan(ctx, &result)
+	if err != nil {
+		return 0, err
+	}
+
+	return result[0].Sum, nil
 }

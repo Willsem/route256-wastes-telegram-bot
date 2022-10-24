@@ -1,18 +1,21 @@
 package models
 
-import "time"
+import (
+	"time"
+
+	"gitlab.ozon.dev/stepanov.ao.dev/telegram-bot/internal/ent"
+)
 
 type Waste struct {
-	ID       int64
-	Cost     int64
-	Category string
-	Date     time.Time
+	*ent.Waste
 }
 
 func NewWaste(category string, cost int64, date time.Time) *Waste {
 	return &Waste{
-		Cost:     cost,
-		Category: category,
-		Date:     date,
+		Waste: &ent.Waste{
+			Cost:     cost,
+			Category: category,
+			Date:     date,
+		},
 	}
 }

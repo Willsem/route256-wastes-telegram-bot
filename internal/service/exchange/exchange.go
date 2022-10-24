@@ -27,7 +27,7 @@ type exchangeClient interface {
 }
 
 var (
-	ErrIncorrectConfig  = errors.New("different length of designations and currencies in a config")
+	ErrIncorrectConfig  = errors.New("different length of designations and currencies in a configs")
 	ErrCurrencyNotFound = errors.New("currency not found in repository")
 	ErrDataNotPrepared  = errors.New("currency exchange does not prepared")
 )

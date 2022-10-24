@@ -1,17 +1,18 @@
 package models
 
+import "gitlab.ozon.dev/stepanov.ao.dev/telegram-bot/internal/ent"
+
 type User struct {
-	ID        int64
-	FirstName string
-	LastName  string
-	UserName  string
+	*ent.User
 }
 
 func NewUser(id int64, firstName string, lastName string, userName string) *User {
 	return &User{
-		ID:        id,
-		FirstName: firstName,
-		LastName:  lastName,
-		UserName:  userName,
+		User: &ent.User{
+			ID:        id,
+			FirstName: firstName,
+			LastName:  lastName,
+			UserName:  userName,
+		},
 	}
 }

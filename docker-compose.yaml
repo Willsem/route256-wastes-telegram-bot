@@ -1,0 +1,41 @@
+version: '3.9'
+
+services:
+  postgres:
+    container_name: postgres
+    restart: unless-stopped
+    image: postgres:14
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/db-init.sql:/docker-entrypoint-initdb.d/db.sql
+    ports:
+      - '5432:5432'
+    networks:
+      - telegram-bot-net
+    healthcheck:
+      test: pg_isready -U postgres
+      start_period: 30s
+      interval: 10s
+      timeout: 10s
+      retries: 30
+
+  telegram-bot:
+    container_name: telegram-bot
+    restart: unless-stopped
+    build: ./
+    volumes:
+      - ./configs/config.example.yaml:/app/config.yaml
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - telegram-bot-net
+
+volumes:
+  postgres-data:
+
+networks:
+  telegram-bot-net:
