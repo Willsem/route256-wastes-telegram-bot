@@ -6,7 +6,6 @@ import (
 
 	"gitlab.ozon.dev/stepanov.ao.dev/telegram-bot/internal/bot"
 	"gitlab.ozon.dev/stepanov.ao.dev/telegram-bot/internal/models"
-	"gitlab.ozon.dev/stepanov.ao.dev/telegram-bot/internal/models/enums"
 )
 
 const (
@@ -15,11 +14,6 @@ const (
 )
 
 func (h *MessageHandlers) getLimitHandler(ctx context.Context, message *models.Message) (*bot.MessageResponse, error) {
-	err := h.userContextService.SetContext(ctx, message.From.ID, enums.AddWaste)
-	if err != nil {
-		return nil, fmt.Errorf("failed to set user context: %w", err)
-	}
-
 	limit, err := h.userRepo.GetWasteLimit(ctx, message.From.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get the limit: %w", err)

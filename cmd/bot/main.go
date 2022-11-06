@@ -14,6 +14,7 @@ import (
 	"gitlab.ozon.dev/stepanov.ao.dev/telegram-bot/internal/http"
 	"gitlab.ozon.dev/stepanov.ao.dev/telegram-bot/internal/metrics"
 	"gitlab.ozon.dev/stepanov.ao.dev/telegram-bot/internal/repository"
+	"gitlab.ozon.dev/stepanov.ao.dev/telegram-bot/internal/service/cache"
 	exchangeservice "gitlab.ozon.dev/stepanov.ao.dev/telegram-bot/internal/service/exchange"
 	"gitlab.ozon.dev/stepanov.ao.dev/telegram-bot/internal/service/usercontext"
 )
@@ -59,10 +60,21 @@ func main() {
 			Fatal("failed to connect to database")
 	}
 	defer func() {
-		err := dbClient.Close()
-		if err != nil {
+		if err := dbClient.Close(); err != nil {
 			logger.WithError(err).
 				Warn("failed to close database")
+		}
+	}()
+
+	redisClient, err := startup.RedisConnect(config.Redis)
+	if err != nil {
+		logger.WithError(err).
+			Fatal("failed to connect to redis")
+	}
+	defer func() {
+		if err := redisClient.Close(); err != nil {
+			logger.WithError(err).
+				Warn("failed to close redis")
 		}
 	}()
 
@@ -90,7 +102,15 @@ func main() {
 	userContextService := metrics.NewUserContextServiceTracerDecorator(
 		metrics.NewUserContextServiceAmountErrorsDecorator(
 			metrics.NewUserContextServiceLatencyDecorator(
-				usercontext.NewService(config.Currency.Default),
+				usercontext.NewService(redisClient, config.Currency.Default),
+			),
+		), tracerProvider,
+	)
+
+	cacheService := metrics.NewCacheServiceTracerDecorator(
+		metrics.NewCacheServiceAmountErrorsDecorator(
+			metrics.NewCacheServiceLatencyDecorator(
+				cache.NewService(redisClient, config.Cache),
 			),
 		), tracerProvider,
 	)
@@ -107,6 +127,7 @@ func main() {
 	iterationMessage := metrics.NewIterationMessageTracerDecorator(bot.NewIterationMessage(tgClientDecorator), tracerProvider)
 	botComponent := bot.New(tgClientDecorator, iterationMessage, logger, handlers.GetHandlers())
 	botComponent.UseMiddleware(bot.CheckUserMiddleware(userRepo))
+	botComponent.UseMiddleware(bot.CacheMiddleware(cacheService, logger))
 	botComponent.UseMiddleware(bot.LoggerMiddleware(logger))
 	botComponent.UseMiddleware(metrics.LatencyMetricMiddleware(commands))
 	botComponent.UseMiddleware(metrics.AmountMetricMiddleware(commands))

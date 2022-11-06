@@ -27,6 +27,15 @@ database:
   db_name: "money_wastes_db"
   ssl_mode: "disable"
 
+redis:
+  host: "redis"
+  port: 6379
+  password: "redis"
+  db: 0
+
+cache:
+  expiration: "1h"
+
 http:
   port: 8080
 

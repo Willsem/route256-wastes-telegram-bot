@@ -119,6 +119,24 @@ services:
       timeout: 10s
       retries: 30
 
+  redis:
+    container_name: redis
+    restart: unless-stopped
+    image: redis:7
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+    command: redis-server --save 20 1 --loglevel warning --requirepass redis
+    networks:
+      - telegram-bot-net
+    healthcheck:
+      test: redis-cli --raw incr ping
+      start_period: 30s
+      interval: 10s
+      timeout: 10s
+      retries: 30
+
   telegram-bot:
     container_name: telegram-bot
     restart: unless-stopped
@@ -131,6 +149,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - telegram-bot-net
 
@@ -139,6 +159,7 @@ volumes:
   elasticsearch-data:
   grafana-data:
   postgres-data:
+  redis-data:
 
 networks:
   telegram-bot-net:

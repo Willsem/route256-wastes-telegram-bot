@@ -8,7 +8,6 @@ import (
 	"github.com/olekukonko/tablewriter"
 	"gitlab.ozon.dev/stepanov.ao.dev/telegram-bot/internal/bot"
 	"gitlab.ozon.dev/stepanov.ao.dev/telegram-bot/internal/models"
-	"gitlab.ozon.dev/stepanov.ao.dev/telegram-bot/internal/models/enums"
 )
 
 type reportPeriod string
@@ -34,13 +33,9 @@ func (h *MessageHandlers) yearHandler(ctx context.Context, message *models.Messa
 }
 
 func (h *MessageHandlers) generateReportForUser(ctx context.Context, message *models.Message, period reportPeriod) (*bot.MessageResponse, error) {
-	err := h.userContextService.SetContext(ctx, message.From.ID, enums.AddWaste)
-	if err != nil {
-		return nil, fmt.Errorf("failed to set user context: %w", err)
-	}
-
 	var report []*models.CategoryReport
 
+	var err error
 	switch period {
 	case week:
 		report, err = h.wasteRepo.GetReportLastWeek(ctx, message.From.ID)

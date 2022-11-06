@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"gitlab.ozon.dev/stepanov.ao.dev/telegram-bot/internal/models"
+	"gitlab.ozon.dev/stepanov.ao.dev/telegram-bot/internal/models/enums"
 	"gitlab.ozon.dev/stepanov.ao.dev/telegram-bot/pkg/log"
 )
 
@@ -55,6 +56,75 @@ func CheckUserMiddleware(userRepo userRepository) MessageMiddleware {
 			}
 
 			return next(ctx, message)
+		}
+	}
+
+	return middleware
+}
+
+//go:generate mockery --name=cacheService --dir . --output ./mocks --exported
+type cacheService interface {
+	Set(ctx context.Context, userID int64, command enums.CommandType, value string) error
+	Get(ctx context.Context, userID int64, command enums.CommandType) (string, error)
+	Clear(ctx context.Context, userID int64, command enums.CommandType) error
+	ClearKeys(ctx context.Context, userID int64, commands ...enums.CommandType) error
+}
+
+func CacheMiddleware(cacheService cacheService, logger log.Logger) MessageMiddleware {
+	logger = logger.With(log.ComponentKey, "Cache middleware")
+	middleware := func(next MessageHandler) MessageHandler {
+		return func(ctx context.Context, message *models.Message) (*MessageResponse, error) {
+			command, err := enums.ParseCommandType(message.Text)
+			if err != nil {
+				return next(ctx, message)
+			}
+
+			switch command {
+			case enums.CommandTypeCurrency:
+				err = cacheService.Clear(ctx, message.From.ID, enums.CommandTypeGetLimit)
+				if err != nil {
+					logger.WithError(err).
+						Info("failed to clear key in the cache")
+				}
+				fallthrough
+
+			case enums.CommandTypeAdd:
+				err = cacheService.ClearKeys(ctx, message.From.ID,
+					enums.CommandTypeWeekReport,
+					enums.CommandTypeMonthReport,
+					enums.CommandTypeYearReport,
+				)
+				if err != nil {
+					logger.WithError(err).
+						Info("failed to clear key in the cache")
+				}
+				return next(ctx, message)
+
+			case enums.CommandTypeSetLimit:
+				err = cacheService.Clear(ctx, message.From.ID, enums.CommandTypeGetLimit)
+				if err != nil {
+					logger.WithError(err).
+						Info("failed to clear key in the cache")
+				}
+				return next(ctx, message)
+
+			default:
+				result, err := cacheService.Get(ctx, message.From.ID, command)
+				if err == nil {
+					return &MessageResponse{
+						Message: result,
+					}, nil
+				}
+			}
+
+			resp, err := next(ctx, message)
+
+			if err := cacheService.Set(ctx, message.From.ID, command, resp.Message); err != nil {
+				logger.WithError(err).
+					Error("failed to upload the message to the cache")
+			}
+
+			return resp, err
 		}
 	}
 

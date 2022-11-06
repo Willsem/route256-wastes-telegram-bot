@@ -50,7 +50,12 @@ func (h *MessageHandlers) setLimit(ctx context.Context, message *models.Message)
 		return nil, fmt.Errorf("failed to set waste for user: %w", err)
 	}
 
+	err = h.userContextService.SetContext(ctx, message.From.ID, enums.NoContext)
+	if err != nil {
+		return nil, fmt.Errorf("failed to set context for user: %w", err)
+	}
+
 	return &bot.MessageResponse{
-		Message: messageSuccessfulChangeCurrency,
+		Message: messageSuccessfulSetLimit,
 	}, nil
 }

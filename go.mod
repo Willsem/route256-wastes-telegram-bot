@@ -3,8 +3,9 @@ module gitlab.ozon.dev/stepanov.ao.dev/telegram-bot
 go 1.19
 
 require (
-	ariga.io/atlas v0.7.2-0.20220927111110-867ee0cca56a
-	entgo.io/ent v0.11.3
+	ariga.io/atlas v0.7.3-0.20221011160332-3ca609863edd
+	entgo.io/ent v0.11.4
+	github.com/go-redis/redis/v9 v9.0.0-rc.1
 	github.com/go-telegram-bot-api/telegram-bot-api/v5 v5.5.1
 	github.com/google/uuid v1.3.0
 	github.com/lib/pq v1.10.7
@@ -24,6 +25,7 @@ require (
 	github.com/apparentlymart/go-textseg/v13 v13.0.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
+	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/go-logr/logr v1.2.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-openapi/inflect v0.19.0 // indirect
