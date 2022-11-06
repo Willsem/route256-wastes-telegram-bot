@@ -1,6 +1,7 @@
 package telegram
 
 import (
+	"context"
 	"fmt"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -42,14 +43,14 @@ func NewClient(config Config, logger log.Logger) (*Client, error) {
 	return c, nil
 }
 
-func (c *Client) SendMessage(userID int64, text string) error {
+func (c *Client) SendMessage(ctx context.Context, userID int64, text string) error {
 	msg := tgbotapi.NewMessage(userID, text)
 	msg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
 	msg.ParseMode = tgbotapi.ModeMarkdown
 	return c.sendMessage(msg)
 }
 
-func (c *Client) SendMessageWithoutRemovingKeyboard(userID int64, text string) error {
+func (c *Client) SendMessageWithoutRemovingKeyboard(ctx context.Context, userID int64, text string) error {
 	msg := tgbotapi.NewMessage(userID, text)
 	msg.ParseMode = tgbotapi.ModeMarkdown
 	return c.sendMessage(msg)
@@ -59,7 +60,7 @@ func (c *Client) GetUpdatesChan() chan *models.Message {
 	return c.messageUpdates
 }
 
-func (c *Client) SendKeyboard(userID int64, text string, rows [][]string) error {
+func (c *Client) SendKeyboard(ctx context.Context, userID int64, text string, rows [][]string) error {
 	buttons := make([][]tgbotapi.KeyboardButton, 0)
 
 	for _, row := range rows {

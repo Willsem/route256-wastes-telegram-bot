@@ -1,28 +1,34 @@
-log_level: 'debug'
+log_level: "debug"
 
 app:
-  graceful_timeout: '1m'
+  graceful_timeout: "1m"
 
 telegram:
-  token: '<token>'
+  token: "<token>"
   timeout: 60
   message_buffer: 10
 
 exchange_client:
-  endpoint: 'https://api.exchangerate.host/latest'
+  endpoint: "https://api.exchangerate.host/latest"
 
 currency:
-  update_timeout: '10m'
-  retry_timeout: '20s'
-  default: 'RUB'
-  designation_default: 'Руб'
-  used: ['USD', 'EUR', 'CNY']
-  designation_used: ['$', '€', '¥']
+  update_timeout: "10m"
+  retry_timeout: "20s"
+  default: "RUB"
+  designation_default: "Руб"
+  used: ["USD", "EUR", "CNY"]
+  designation_used: ["$", "€", "¥"]
 
 database:
-  host: 'postgres'
+  host: "postgres"
   port: 5432
-  user: 'postgres'
-  password: 'postgres'
-  db_name: 'money_wastes_db'
-  ssl_mode: 'disable'
+  user: "postgres"
+  password: "postgres"
+  db_name: "money_wastes_db"
+  ssl_mode: "disable"
+
+http:
+  port: 8080
+
+metrics:
+  jaeger_url: "http://jaeger:14268/api/traces"

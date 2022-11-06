@@ -13,6 +13,6 @@ FROM alpine:3.16
 
 WORKDIR /app
 
-COPY --from=build /app/bot ./
+COPY --from=build /app/bot /app/entrypoint.sh ./
 
-CMD ["/app/bot", "-config", "/app/config.yaml"]
+CMD ["./entrypoint.sh"]

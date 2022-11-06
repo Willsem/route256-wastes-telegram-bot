@@ -6,8 +6,6 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-const loggerName = "telegram-bot"
-
-func NewLogger(logLevel zapcore.Level) log.Logger {
+func NewLogger(loggerName string, logLevel zapcore.Level) log.Logger {
 	return zap.NewLogger(loggerName, logLevel)
 }

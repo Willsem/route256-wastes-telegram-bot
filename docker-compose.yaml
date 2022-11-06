@@ -1,6 +1,103 @@
-version: '3.9'
+version: "3.9"
 
 services:
+  mongodb:
+    container_name: mongodb
+    restart: unless-stopped
+    image: mongo:3
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - telegram-bot-net
+
+  elasticsearch:
+    container_name: elasticsearch
+    restart: unless-stopped
+    image: elasticsearch:7.17.6
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    networks:
+      - telegram-bot-net
+
+  graylog:
+    container_name: graylog
+    restart: unless-stopped
+    image: graylog/graylog:4.3
+    volumes:
+      - ./configs/graylog.conf:/usr/share/graylog/data/config/graylog.conf
+    environment:
+      - GRAYLOG_PASSWORD_SECRET=EabOdthinPafivup
+      - GRAYLOG_ROOT_PASSWORD_SHA2=8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918
+      - GRAYLOG_HTTP_BIND_ADDRESS=0.0.0.0:7555
+      - GRAYLOG_HTTP_EXTERNAL_URI=http://127.0.0.1:7555/
+    depends_on:
+      - mongodb
+      - elasticsearch
+    ports:
+      - 7555:7555
+      - 8514:8514
+      - 8514:8514/udp
+      - 12201:12201
+    networks:
+      - telegram-bot-net
+
+  filed:
+    container_name: filed
+    restart: unless-stopped
+    image: ozonru/file.d:latest-linux-amd64
+    command: /file.d/file.d --config /config.yaml
+    volumes:
+      - ./logs/log.txt:/tmp/logs/log.txt
+      - ./configs/filed/offsets.yaml:/tmp/offsets.yaml
+      - ./configs/filed/filed.yaml:/config.yaml
+    depends_on:
+      - graylog
+    networks:
+      - telegram-bot-net
+
+  prometheus:
+    container_name: prometheus
+    restart: unless-stopped
+    image: prom/prometheus:v2.39.1
+    ports:
+      - 9090:9090
+    volumes:
+      - ./configs/prometheus.yaml:/etc/prometheus/prometheus.yaml
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yaml"
+    networks:
+      - telegram-bot-net
+
+  grafana:
+    container_name: grafana
+    restart: unless-stopped
+    image: grafana/grafana-oss:9.2.2
+    ports:
+      - 3000:3000
+    volumes:
+      - grafana-data:/var/lib/grafana
+    networks:
+      - telegram-bot-net
+
+  jaeger:
+    container_name: jaeger
+    restart: unless-stopped
+    image: jaegertracing/all-in-one:1.18
+    ports:
+      - 5775:5775/udp
+      - 6831:6831/udp
+      - 6832:6832/udp
+      - 5778:5778
+      - 16686:16686
+      - 14268:14268
+      - 9411:9411
+    networks:
+      - telegram-bot-net
+
   postgres:
     container_name: postgres
     restart: unless-stopped
@@ -10,9 +107,9 @@ services:
       POSTGRES_PASSWORD: postgres
     volumes:
       - postgres-data:/var/lib/postgresql/data
-      - ./postgres/db-init.sql:/docker-entrypoint-initdb.d/db.sql
+      - ./configs/db-init.sql:/docker-entrypoint-initdb.d/db.sql
     ports:
-      - '5432:5432'
+      - "5432:5432"
     networks:
       - telegram-bot-net
     healthcheck:
@@ -28,6 +125,9 @@ services:
     build: ./
     volumes:
       - ./configs/config.example.yaml:/app/config.yaml
+      - ./logs/log.txt:/app/log.txt
+    ports:
+      - "8080:8080"
     depends_on:
       postgres:
         condition: service_healthy
@@ -35,6 +135,9 @@ services:
       - telegram-bot-net
 
 volumes:
+  mongo-data:
+  elasticsearch-data:
+  grafana-data:
   postgres-data:
 
 networks:

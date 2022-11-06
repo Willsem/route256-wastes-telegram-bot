@@ -42,12 +42,10 @@ func (a *App) Run(ctx context.Context) error {
 	ctxNotify, stop := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	g := errgroup.Group{}
+	g := &errgroup.Group{}
 
 	for _, c := range a.components {
-		go func(c component) {
-			g.Go(c.Start)
-		}(c)
+		g.Go(c.Start)
 	}
 
 	if err := g.Wait(); err != nil {
@@ -73,7 +71,7 @@ func (a *App) stop() error {
 	g := errgroup.Group{}
 
 	for _, c := range a.components {
-		go func(c component) {
+		func(c component) {
 			g.Go(func() error {
 				return c.Stop(ctx)
 			})
