@@ -20,11 +20,7 @@ type userRepository interface {
 
 //go:generate mockery --name=wasteRepository --dir . --output ./mocks --exported
 type wasteRepository interface {
-	GetReportLastWeek(ctx context.Context, userID int64) ([]*models.CategoryReport, error)
-	GetReportLastMonth(ctx context.Context, userID int64) ([]*models.CategoryReport, error)
-	GetReportLastYear(ctx context.Context, userID int64) ([]*models.CategoryReport, error)
 	SumOfWastesAfterDate(ctx context.Context, userID int64, date time.Time) (int64, error)
-
 	AddWasteToUser(ctx context.Context, userID int64, waste *models.Waste) (*models.Waste, error)
 }
 
@@ -44,11 +40,17 @@ type userContextService interface {
 	GetCurrency(ctx context.Context, userID int64) (string, error)
 }
 
+//go:generate mockery --name=kafkaProducer --dir . --output ./mocks --exported
+type kafkaProducer interface {
+	SendMessage(ctx context.Context, key []byte, value []byte) error
+}
+
 type MessageHandlers struct {
 	userRepo           userRepository
 	wasteRepo          wasteRepository
 	exchangeService    exchangeService
 	userContextService userContextService
+	kafkaProducer      kafkaProducer
 }
 
 func NewMessageHandlers(
@@ -56,12 +58,14 @@ func NewMessageHandlers(
 	wasteRepo wasteRepository,
 	exchangeService exchangeService,
 	userContextService userContextService,
+	kafkaProducer kafkaProducer,
 ) *MessageHandlers {
 	return &MessageHandlers{
 		userRepo:           userRepo,
 		wasteRepo:          wasteRepo,
 		exchangeService:    exchangeService,
 		userContextService: userContextService,
+		kafkaProducer:      kafkaProducer,
 	}
 }
 

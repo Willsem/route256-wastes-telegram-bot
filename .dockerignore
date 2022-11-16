@@ -5,3 +5,4 @@
 !go.mod
 !go.sum
 !entrypoint.sh
+!entrypoint-report-service.sh

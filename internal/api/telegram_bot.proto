@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package api;
+option go_package = "gitlab.ozon.ru/stepanov.ao.dev/telegram-bot/internal/api";
+
+service TelegramBot {
+  rpc SendMessage(Message) returns (EmptyMessage) {}
+}
+
+message Message {
+  int64 user_id = 1;
+  string text = 2;
+  string command = 3;
+}
+
+message EmptyMessage {}

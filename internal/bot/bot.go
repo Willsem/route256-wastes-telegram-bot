@@ -14,7 +14,7 @@ type telegramClient interface {
 	SendMessage(ctx context.Context, userID int64, text string) error
 	SendMessageWithoutRemovingKeyboard(ctx context.Context, userID int64, text string) error
 	SendKeyboard(ctx context.Context, userID int64, text string, rows [][]string) error
-	GetUpdatesChan() chan *models.Message
+	GetUpdatesChan() <-chan *models.Message
 }
 
 //go:generate mockery --name=iterationMessage --dir . --output ./mocks --exported

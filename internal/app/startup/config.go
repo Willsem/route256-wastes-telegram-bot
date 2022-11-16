@@ -10,6 +10,7 @@ import (
 	"gitlab.ozon.dev/stepanov.ao.dev/telegram-bot/internal/app"
 	exchangeclient "gitlab.ozon.dev/stepanov.ao.dev/telegram-bot/internal/clients/exchange"
 	"gitlab.ozon.dev/stepanov.ao.dev/telegram-bot/internal/clients/telegram"
+	"gitlab.ozon.dev/stepanov.ao.dev/telegram-bot/internal/grpc"
 	"gitlab.ozon.dev/stepanov.ao.dev/telegram-bot/internal/http"
 	"gitlab.ozon.dev/stepanov.ao.dev/telegram-bot/internal/metrics"
 	"gitlab.ozon.dev/stepanov.ao.dev/telegram-bot/internal/service/cache"
@@ -23,8 +24,10 @@ type Config struct {
 	Currency       exchangeservice.Config `yaml:"currency"`
 	Database       DatabaseConfig         `yaml:"database"`
 	Redis          RedisConfig            `yaml:"redis"`
+	Kafka          KafkaConfig            `yaml:"kafka"`
 	Cache          cache.Config           `yaml:"cache"`
 	Http           http.Config            `yaml:"http"`
+	Grpc           grpc.Config            `yaml:"grpc"`
 	Metrics        metrics.Config         `yaml:"metrics"`
 
 	LogLevel zapcore.Level `yaml:"log_level"`

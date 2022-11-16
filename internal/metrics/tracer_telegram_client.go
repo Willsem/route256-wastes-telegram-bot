@@ -41,6 +41,6 @@ func (d *TelegramClientTracerDecorator) SendKeyboard(ctx context.Context, userID
 	return d.tgClient.SendKeyboard(ctxTrace, userID, text, rows)
 }
 
-func (d *TelegramClientTracerDecorator) GetUpdatesChan() chan *models.Message {
+func (d *TelegramClientTracerDecorator) GetUpdatesChan() <-chan *models.Message {
 	return d.tgClient.GetUpdatesChan()
 }

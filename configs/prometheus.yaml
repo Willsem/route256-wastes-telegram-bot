@@ -14,4 +14,8 @@ scrape_configs:
 
   - job_name: "telegram-bot"
     static_configs:
-      - targets: ["telegram-bot:8080"]
+      - targets: ["telegram-bot:3000"]
+
+  - job_name: "report-service"
+    static_configs:
+      - targets: ["report-service:3000"]

@@ -33,10 +33,17 @@ redis:
   password: "redis"
   db: 0
 
+kafka:
+  brockers: ["kafka:9092"]
+  topic: "wastes-telegram-bot"
+
 cache:
   expiration: "1h"
 
 http:
+  port: 3000
+
+grpc:
   port: 8080
 
 metrics:

@@ -119,9 +119,13 @@ func CacheMiddleware(cacheService cacheService, logger log.Logger) MessageMiddle
 
 			resp, err := next(ctx, message)
 
-			if err := cacheService.Set(ctx, message.From.ID, command, resp.Message); err != nil {
-				logger.WithError(err).
-					Error("failed to upload the message to the cache")
+			if command != enums.CommandTypeWeekReport &&
+				command != enums.CommandTypeMonthReport &&
+				command != enums.CommandTypeYearReport {
+				if err := cacheService.Set(ctx, message.From.ID, command, resp.Message); err != nil {
+					logger.WithError(err).
+						Error("failed to upload the message to the cache")
+				}
 			}
 
 			return resp, err

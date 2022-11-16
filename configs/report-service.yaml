@@ -1,0 +1,29 @@
+log_level: "debug"
+
+app:
+  graceful_timeout: "1m"
+
+database:
+  host: "postgres"
+  port: 5432
+  user: "postgres"
+  password: "postgres"
+  db_name: "money_wastes_db"
+  ssl_mode: "disable"
+
+kafka:
+  brockers: ["kafka:9092"]
+  topic: "wastes-telegram-bot"
+
+consumer:
+  buffer_size: 100
+
+http:
+  port: 3000
+
+grpc_client:
+  host: "telegram-bot"
+  port: 8080
+
+metrics:
+  jaeger_url: "http://jaeger:14268/api/traces"

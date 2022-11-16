@@ -11,11 +11,13 @@ import (
 	"gitlab.ozon.dev/stepanov.ao.dev/telegram-bot/internal/bot/handlers"
 	exchangeclient "gitlab.ozon.dev/stepanov.ao.dev/telegram-bot/internal/clients/exchange"
 	"gitlab.ozon.dev/stepanov.ao.dev/telegram-bot/internal/clients/telegram"
+	"gitlab.ozon.dev/stepanov.ao.dev/telegram-bot/internal/grpc"
 	"gitlab.ozon.dev/stepanov.ao.dev/telegram-bot/internal/http"
 	"gitlab.ozon.dev/stepanov.ao.dev/telegram-bot/internal/metrics"
 	"gitlab.ozon.dev/stepanov.ao.dev/telegram-bot/internal/repository"
 	"gitlab.ozon.dev/stepanov.ao.dev/telegram-bot/internal/service/cache"
 	exchangeservice "gitlab.ozon.dev/stepanov.ao.dev/telegram-bot/internal/service/exchange"
+	"gitlab.ozon.dev/stepanov.ao.dev/telegram-bot/internal/service/kafka"
 	"gitlab.ozon.dev/stepanov.ao.dev/telegram-bot/internal/service/usercontext"
 )
 
@@ -31,6 +33,8 @@ func main() {
 	}
 
 	logger := startup.NewLogger(serviceName, config.LogLevel)
+
+	logger.With("config", config).Info("application staring with this config")
 
 	tracerProvider, err := metrics.InitTracer(config.Metrics, serviceName)
 	if err != nil {
@@ -78,6 +82,16 @@ func main() {
 		}
 	}()
 
+	kafkaClient := startup.NewKafkaProducer(config.Kafka)
+	defer func() {
+		if err := kafkaClient.Close(); err != nil {
+			logger.WithError(err).
+				Warn("failed to close kafka")
+		}
+	}()
+
+	kafkaProducer := kafka.NewProducer(kafkaClient)
+
 	userRepo := metrics.NewUserRepositoryTracerDecorator(
 		metrics.NewUserRepositoryAmountErrorsDecorator(
 			metrics.NewUserRepositoryLatencyDecorator(
@@ -120,6 +134,7 @@ func main() {
 		wasteRepo,
 		exchangeService,
 		userContextService,
+		kafkaProducer,
 	)
 
 	commands := []string{"add", "setLimit", "getLimit", "week", "month", "year", "currency"}
@@ -134,11 +149,13 @@ func main() {
 	botComponent.UseMiddleware(metrics.TracingMiddleware(tracerProvider, commands))
 
 	httpRouter := http.NewHttpRouter(config.Http, logger)
+	grpcServer := grpc.NewServer(config.Grpc, tgClientDecorator, cacheService, logger)
 
 	err = app.New(config.App, logger,
 		exchangeService,
 		botComponent,
 		httpRouter,
+		grpcServer,
 	).Run(context.Background())
 	if err != nil {
 		logger.WithError(err).Fatal("failed during running app")

@@ -4,7 +4,7 @@ pipelines:
       type: file
       persistence_mode: async
       watching_dir: /tmp/logs
-      filename_pattern: log.txt
+      filename_pattern: telegram-bot.log
       offsets_file: /tmp/offsets.yaml
       offsets_op: reset
 

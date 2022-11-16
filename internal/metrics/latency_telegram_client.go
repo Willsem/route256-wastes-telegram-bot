@@ -14,7 +14,7 @@ type telegramClient interface {
 	SendMessage(ctx context.Context, userID int64, text string) error
 	SendMessageWithoutRemovingKeyboard(ctx context.Context, userID int64, text string) error
 	SendKeyboard(ctx context.Context, userID int64, text string, rows [][]string) error
-	GetUpdatesChan() chan *models.Message
+	GetUpdatesChan() <-chan *models.Message
 }
 
 type TelegramClientLatencyDecorator struct {
@@ -63,6 +63,6 @@ func (d *TelegramClientLatencyDecorator) SendKeyboard(ctx context.Context, userI
 	return err
 }
 
-func (d *TelegramClientLatencyDecorator) GetUpdatesChan() chan *models.Message {
+func (d *TelegramClientLatencyDecorator) GetUpdatesChan() <-chan *models.Message {
 	return d.tgClient.GetUpdatesChan()
 }

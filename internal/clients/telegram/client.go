@@ -56,7 +56,7 @@ func (c *Client) SendMessageWithoutRemovingKeyboard(ctx context.Context, userID 
 	return c.sendMessage(msg)
 }
 
-func (c *Client) GetUpdatesChan() chan *models.Message {
+func (c *Client) GetUpdatesChan() <-chan *models.Message {
 	return c.messageUpdates
 }
 
