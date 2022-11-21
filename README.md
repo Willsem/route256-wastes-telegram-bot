@@ -1,9 +1,8 @@
 # Телеграм бот для учета трат
 
-## Документация
+## Архитектура
 
-- [Ссылка на miro с архитектурой](https://miro.com/app/board/uXjVPLZx3vY=/?share_link_id=870986374586)
-- Экспорт из miro в [pdf](./docs/architecture.pdf)
+![Архитектура](./docs/architecture.jpg)
 
 ## Инфраструктура
 
