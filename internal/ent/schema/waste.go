@@ -33,6 +33,7 @@ func (Waste) Edges() []ent.Edge {
 	}
 }
 
+// Indexes of the Waste.
 func (Waste) Indexes() []ent.Index {
 	return []ent.Index{
 		index.Fields("category"),

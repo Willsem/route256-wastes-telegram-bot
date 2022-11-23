@@ -24,22 +24,14 @@ func LoggerMiddleware(l log.Logger) MessageMiddleware {
 	return middleware
 }
 
-func TracingMiddleware() MessageMiddleware {
-	middleware := func(next MessageHandler) MessageHandler {
-		return func(ctx context.Context, message *models.Message) (*MessageResponse, error) {
-			return next(ctx, message)
-		}
-	}
-
-	return middleware
-}
-
 //go:generate mockery --name=userRepository --dir . --output ./mocks --exported
 type userRepository interface {
 	UserExists(ctx context.Context, id int64) (bool, error)
 	AddUser(ctx context.Context, user *models.User) (*models.User, error)
 }
 
+// CheckUserMiddleware middleware for adding new users
+// and make sure that user exists during the running message handler.
 func CheckUserMiddleware(userRepo userRepository) MessageMiddleware {
 	middleware := func(next MessageHandler) MessageHandler {
 		return func(ctx context.Context, message *models.Message) (*MessageResponse, error) {

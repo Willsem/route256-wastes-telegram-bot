@@ -7,6 +7,9 @@ import (
 	"gitlab.ozon.dev/stepanov.ao.dev/telegram-bot/pkg/log"
 )
 
+// IterationMessage just start the handler which is choosen by Bot.
+//
+// Separate from Bot for metrics and tracer.
 type IterationMessage struct {
 	tgClient telegramClient
 }
@@ -17,6 +20,7 @@ func NewIterationMessage(tgClient telegramClient) *IterationMessage {
 	}
 }
 
+// Iterate runs the message handler.
 func (i *IterationMessage) Iterate(ctx context.Context, message *models.Message, handler MessageHandler, logger log.Logger) {
 	response, err := handler(ctx, message)
 	if err != nil {

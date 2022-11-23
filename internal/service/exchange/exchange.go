@@ -32,6 +32,7 @@ var (
 	ErrDataNotPrepared  = errors.New("currency exchange does not prepared")
 )
 
+// Service is updating data about exchange from external service each timeout.
 type Service struct {
 	exchangeClient exchangeClient
 	config         Config

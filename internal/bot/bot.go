@@ -22,14 +22,17 @@ type iterationMessage interface {
 	Iterate(ctx context.Context, message *models.Message, handler MessageHandler, logger log.Logger)
 }
 
+// MessageResponse is a result of working bot handlers.
 type MessageResponse struct {
 	Message             string
 	Keyboard            [][]string
 	DoNotRemoveKeyboard bool
 }
 
+// MessageHandler is a type which represents a handler for messages.
 type MessageHandler func(ctx context.Context, message *models.Message) (*MessageResponse, error)
 
+// Bot is a router which choose which handler to run and run middlewares before the handlers.
 type Bot struct {
 	tgClient         telegramClient
 	iterationMessage iterationMessage
@@ -91,6 +94,8 @@ func (b *Bot) run(ctx context.Context) {
 	}
 }
 
+// UseMiddleware adds a function which will be runned before all previous added middlewares
+// and message handler.
 func (b *Bot) UseMiddleware(middleware func(next MessageHandler) MessageHandler) {
 	for key, v := range b.handlers {
 		b.handlers[key] = middleware(v)
